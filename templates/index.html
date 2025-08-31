@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOL Price Prediction Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: none;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+        }
+        
+        .crypto-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #9945FF, #14F195);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .prediction-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .price-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #9945FF, #14F195);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .change-positive { color: #28a745 !important; }
+        .change-negative { color: #dc3545 !important; }
+        
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #9945FF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #9945FF, #14F195);
+            border: none;
+            border-radius: 25px;
+            padding: 8px 24px;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #7d3ae6, #0fd87a);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <div class="navbar-brand d-flex align-items-center">
+                <div class="crypto-icon me-2">SOL</div>
+                <span class="fw-bold">Price Predictor</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3" id="lastUpdate">Last updated: Loading...</span>
+                <button class="btn btn-primary" onclick="updatePrediction()">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                    <div class="loading-spinner ms-2" id="loadingSpinner"></div>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Main Dashboard -->
+        <div class="row">
+            <!-- Current Price Card -->
+            <div class="col-md-6 mb-4">
+                <div class="card prediction-card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title mb-4">
+                            <i class="fas fa-coins text-warning me-2"></i>Current SOL Price
+                        </h5>
+                        <div class="price-display" id="currentPrice">$---</div>
+                        <p class="mt-2 mb-0" id="currentChange">
+                            <span class="badge bg-secondary">Loading...</span>
+                        </p>
+                        <small class="text-muted">24h Change</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction Card -->
+            <div class="col-md-6 mb-4">
+                <div class="card prediction-card h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title mb-4">
+                            <i class="fas fa-crystal-ball text-primary me-2"></i>Next Day Prediction
+                        </h5>
+                        <div class="price-display" id="predictedPrice">$---</div>
+                        <p class="mt-2 mb-0" id="predictedChange">
+                            <span class="badge bg-secondary">Loading...</span>
+                        </p>
+                        <small class="text-muted">Medium Accuracy (55-65%)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart and Stats Row -->
+        <div class="row">
+            <!-- Price Chart -->
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>Price History
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-primary btn-sm" onclick="loadChart(7)">7D</button>
+                            <button class="btn btn-primary btn-sm" onclick="loadChart(30)">30D</button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="loadChart(90)">90D</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="priceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Stats -->
+            <div class="col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-brain me-2"></i>Model Performance
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Direction Accuracy</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" id="accuracyBar" style="width: 0%">0%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Model Architecture</label>
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-layer-group me-2"></i>LSTM Neural Network</li>
+                                <li><i class="fas fa-cogs me-2"></i>60 Timestep Sequences</li>
+                                <li><i class="fas fa-chart-bar me-2"></i>Technical Indicators</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Training Data</label>
+                            <p class="small text-muted mb-1">Period: Aug 2024 - Nov 2024</p>
+                            <p class="small text-muted mb-1">Features: Price, RSI, MACD, MA</p>
+                            <p class="small text-muted mb-0">Parameters: <span id="modelParams">Loading...</span></p>
+                        </div>
+                        
+                        <button class="btn btn-outline-primary btn-sm w-100" onclick="retrainModel()">
+                            <i class="fas fa-sync-alt me-2"></i>Retrain Model
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Disclaimer:</strong> This model is for educational purposes only. 
+                    Cryptocurrency trading involves significant risk. Always do your own research.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let priceChart;
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePrediction();
+            loadChart(30);
+            loadModelStats();
+        });
+        
+        // Update prediction data
+        async function updatePrediction() {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/api/predict');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update current price
+                document.getElementById('currentPrice').textContent = `$${data.current_price}`;
+                const currentChangeEl = document.getElementById('currentChange');
+                const changeClass = data.change_24h >= 0 ? 'change-positive' : 'change-negative';
+                const changeSymbol = data.change_24h >= 0 ? '+' : '';
+                currentChangeEl.innerHTML = `<span class="badge bg-light text-dark ${changeClass}">${changeSymbol}${data.change_24h}%</span>`;
+                
+                // Update prediction
+                document.getElementById('predictedPrice').textContent = `$${data.predicted_price}`;
+                const predictedChangeEl = document.getElementById('predictedChange');
+                const predChangeClass = data.predicted_change >= 0 ? 'change-positive' : 'change-negative';
+                const predChangeSymbol = data.predicted_change >= 0 ? '+' : '';
+                predictedChangeEl.innerHTML = `<span class="badge bg-light text-dark ${predChangeClass}">${predChangeSymbol}${data.predicted_change}%</span>`;
+                
+                // Update timestamp
+                const timestamp = new Date(data.timestamp).toLocaleString();
+                document.getElementById('lastUpdate').textContent = `Last updated: ${timestamp}`;
+                
+            } catch (error) {
+                console.error('Error updating prediction:', error);
+                alert('Error loading prediction data');
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+        
+        // Load price chart
+        async function loadChart(days) {
+            try {
+                const response = await fetch(`/api/historical?days=${days}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                
+                if (priceChart) {
+                    priceChart.destroy();
+                }
+                
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.timestamps.map(ts => new Date(ts).toLocaleDateString()),
+                        datasets: [{
+                            label: 'SOL Price (USD)',
+                            data: data.prices,
+                            borderColor: '#9945FF',
+                            backgroundColor: 'rgba(153, 69, 255, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Price (USD)'
+                                }
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 0,
+                                hoverRadius: 5
+                            }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error loading chart:', error);
+                alert('Error loading chart data');
+            }
+        }
+        
+        // Load model statistics
+        async function loadModelStats() {
+            try {
+                const response = await fetch('/api/model-stats');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update accuracy bar
+                const accuracyBar = document.getElementById('accuracyBar');
+                const accuracy = data.direction_accuracy || 0;
+                accuracyBar.style.width = `${accuracy}%`;
+                accuracyBar.textContent = `${accuracy}%`;
+                
+                // Update model parameters
+                document.getElementById('modelParams').textContent = 
+                    data.model_parameters ? data.model_parameters.toLocaleString() : 'N/A';
+                
+            } catch (error) {
+                console.error('Error loading model stats:', error);
+            }
+        }
+        
+        // Retrain model
+        async function retrainModel() {
+            if (!confirm('Retraining will take several minutes. Continue?')) {
+                return;
+            }
+            
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Training...';
+            
+            try {
+                const response = await fetch('/api/retrain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert('Model retrained successfully!');
+                    loadModelStats();
+                    updatePrediction();
+                } else {
+                    throw new Error(data.message || 'Retraining failed');
+                }
+                
+            } catch (error) {
+                console.error('Error retraining model:', error);
+                alert('Error during model retraining');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Retrain Model';
+            }
+        }
+        
+        // Auto refresh every 5 minutes
+        setInterval(updatePrediction, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
