@@ -1,0 +1,129 @@
+"""
+Startup check script to verify everything is working
+Usage: python startup_check.py
+"""
+
+import sys
+import os
+
+print("=== SOL Price Prediction Startup Check ===\n")
+
+# Check Python version
+print(f"Python version: {sys.version}")
+
+# Check required directories
+print("\n=== Checking Directories ===")
+required_dirs = ['app', 'data', 'data/models', 'data/raw', 'data/processed', 'templates', 'scripts']
+for dir_name in required_dirs:
+    if os.path.exists(dir_name):
+        print(f"✓ {dir_name} exists")
+    else:
+        print(f"✗ {dir_name} missing - creating...")
+        os.makedirs(dir_name, exist_ok=True)
+
+# Check required files
+print("\n=== Checking Core Files ===")
+required_files = [
+    'run.py', 'config.py', 'requirements.txt', '.gitignore',
+    'app/__init__.py', 'app/routes.py', 'app/models.py', 'app/utils.py',
+    'templates/index.html', 'scripts/train_model.py', 'scripts/data_collector.py',
+    'Dockerfile', 'docker-compose.yml'
+]
+for file_name in required_files:
+    if os.path.exists(file_name):
+        print(f"✓ {file_name} exists")
+    else:
+        print(f"✗ {file_name} missing")
+
+# Check imports
+print("\n=== Checking Python Libraries ===")
+libraries = [
+    ('flask', 'Flask'),
+    ('pandas', 'pandas'),
+    ('numpy', 'numpy'),
+    ('requests', 'requests'),
+    ('sklearn', 'scikit-learn'),
+    ('tensorflow', 'tensorflow'),
+]
+
+for lib, name in libraries:
+    try:
+        __import__(lib)
+        print(f"✓ {name} available")
+    except ImportError:
+        print(f"✗ {name} not available")
+        if lib in ['flask', 'pandas', 'numpy']:
+            print(f"   Install with: pip install {name.split()[0]}")
+
+# Test basic imports
+print("\n=== Testing App Imports ===")
+try:
+    from app.utils import fetch_price_data, get_latest_price_data
+    print("✓ Utils import successful")
+    
+    # Test data fetching
+    print("  - Testing data generation...")
+    data = fetch_price_data(days=7)
+    print(f"  - Generated {len(data)} data points")
+    
+    print("  - Testing current price...")
+    current = get_latest_price_data()
+    print(f"  - Current price: ${current['price']:.2f}")
+    
+except Exception as e:
+    print(f"✗ Utils import failed: {e}")
+
+try:
+    from app.models import PricePredictor
+    print("✓ Models import successful")
+    
+    # Test predictor
+    predictor = PricePredictor()
+    print("  - PricePredictor initialized")
+    
+except Exception as e:
+    print(f"✗ Models import failed: {e}")
+
+try:
+    from app import create_app
+    print("✓ App factory import successful")
+    
+    app = create_app()
+    print("✓ Flask app created successfully")
+    
+except Exception as e:
+    print(f"✗ App creation failed: {e}")
+
+print("\n=== Testing API Endpoints ===")
+try:
+    from app import create_app
+    app = create_app()
+    
+    with app.test_client() as client:
+        # Test main page
+        response = client.get('/')
+        print(f"✓ GET / : {response.status_code}")
+        
+        # Test API endpoints
+        endpoints = ['/api/predict', '/api/historical', '/api/model-stats']
+        for endpoint in endpoints:
+            try:
+                response = client.get(endpoint)
+                if response.status_code == 200:
+                    print(f"✓ GET {endpoint} : {response.status_code}")
+                else:
+                    print(f"⚠ GET {endpoint} : {response.status_code}")
+            except Exception as e:
+                print(f"✗ GET {endpoint} : Error - {e}")
+        
+except Exception as e:
+    print(f"✗ API testing failed: {e}")
+
+print("\n=== Summary ===")
+print("If you see any ✗ errors above, those need to be fixed.")
+print("If you see mostly ✓ marks, the app should work!")
+print("\nNext steps:")
+print("1. Install missing libraries: pip install -r requirements.txt")
+print("2. Collect data: python scripts/data_collector.py")
+print("3. Train model: python scripts/train_model.py")
+print("4. Start app: python run.py")
